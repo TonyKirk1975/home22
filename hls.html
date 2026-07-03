@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic HLS/DASH Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #videoContainer {
+            width: 100%;
+            max-width: 1920px;
+            background-color: #000;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block; /* Remove extra space below video */
+            pointer-events: none; /* Block mouse interaction */
+        }
+        #controls {
+            margin-top: 10px;
+            text-align: center;
+        }
+        #hlsUrlInput {
+            width: 60%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #message {
+            margin-top: 10px;
+            color: #333;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        #muteBtn {
+            margin-top: 10px;
+            padding: 8px 15px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #muteBtn:hover {
+            background-color: #495057;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="videoContainer">
+        <video id="videoPlayer" controls></video>
+    </div>
+
+    <button id="muteBtn">Mute</button>
+
+    <div id="controls">
+        <input type="text" id="hlsUrlInput" placeholder="Enter HLS .m3u8 or DASH .mpd URL">
+        <button onclick="loadStreamFromInput()">Load Stream</button>
+    </div>
+
+    <p id="message"></p>
+
+    <div id="keyboard-help" style="margin-top: 20px; font-size: 12px; color: #666; text-align: center; max-width: 600px;">
+        <strong>Keyboard Controls:</strong> 
+        F = Fullscreen, M = Mute, Space/K = Play/Pause, ← → = Skip 10s, ↑ ↓ = Volume, Home/0 = Start, End = End, Esc = Exit Fullscreen
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dashjs@latest/dist/dash.all.min.js"></script>
+
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const messageElement = document.getElementById('message');
+        const hlsUrlInput = document.getElementById('hlsUrlInput');
+        const muteBtn = document.getElementById('muteBtn');
+
+        // Function to get a URL parameter
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        function disableSubtitles() {
+            // Turn off all text tracks (subtitles/captions)
+            if (video.textTracks) {
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = 'disabled';
+                }
+            }
+        }
+
+        function loadStream(url) {
+            const isHLS = url.toLowerCase().endsWith('.m3u8') || url.toLowerCase().includes('.m3u8');
+            const isDASH = url.toLowerCase().endsWith('.mpd') || url.toLowerCase().includes('.mpd');
+            
+            // Clear existing players
+            if (window.hlsInstance) {
+                window.hlsInstance.destroy();
+                window.hlsInstance = null;
+            }
+            if (window.dashInstance) {
+                window.dashInstance.destroy();
+                window.dashInstance = null;
+            }
+            
+            if (isHLS) {
+                loadHLSStream(url);
+            } else if (isDASH) {
+                loadDASHStream(url);
+            } else {
+                messageElement.textContent = 'Unsupported stream format. Please provide an HLS (.m3u8) or DASH (.mpd) URL.';
+                messageElement.classList.add('error');
+            }
+        }
+
+        function loadHLSStream(url) {
+            if (Hls.isSupported()) {
+                window.hlsInstance = new Hls();
+                window.hlsInstance.loadSource(url);
+                window.hlsInstance.attachMedia(video);
+                window.hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.autoplay = true;
+                    video.muted = true;
+                    video.play();
+                    disableSubtitles();
+                    messageElement.textContent = `Playing HLS: ${url}`;
+                    messageElement.classList.remove('error');
+                });
+                window.hlsInstance.on(Hls.Events.LEVEL_LOADED, function() {
+                    disableSubtitles();
+                });
+                window.hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                messageElement.textContent = `Fatal network error trying to load HLS stream: ${data.details}. Please check the URL and your connection.`;
+                                messageElement.classList.add('error');
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                messageElement.textContent = `Fatal media error: ${data.details}. Stream might be corrupted or unsupported.`;
+                                messageElement.classList.add('error');
+                                window.hlsInstance.destroy(); // Try to recover by destroying and re-creating
+                                break;
+                            default:
+                                messageElement.textContent = `An unknown fatal error occurred: ${data.details}`;
+                                messageElement.classList.add('error');
+                                window.hlsInstance.destroy();
+                                break;
+                        }
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.autoplay = true;
+                video.muted = true;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                    disableSubtitles();
+                    messageElement.textContent = `Playing (native HLS): ${url}`;
+                    messageElement.classList.remove('error');
+                });
+                video.addEventListener('error', function() {
+                    messageElement.textContent = `Error loading stream natively. Is the URL correct? ${url}`;
+                    messageElement.classList.add('error');
+                });
+            } else {
+                messageElement.textContent = 'Your browser does not support HLS.';
+                messageElement.classList.add('error');
+            }
+        }
+
+        function loadDASHStream(url) {
+            if (typeof dashjs !== 'undefined') {
+                try {
+                    window.dashInstance = dashjs.MediaPlayer().create();
+                    window.dashInstance.initialize(video, url, true); // autoPlay = true
+                    video.muted = true;
+                    
+                    window.dashInstance.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, function() {
+                        disableSubtitles();
+                        messageElement.textContent = `Playing DASH: ${url}`;
+                        messageElement.classList.remove('error');
+                    });
+                    
+                    window.dashInstance.on(dashjs.MediaPlayer.events.ERROR, function(e) {
+                        messageElement.textContent = `DASH Error: ${e.error || 'Unknown error occurred'}`;
+                        messageElement.classList.add('error');
+                        console.error('DASH Error:', e);
+                    });
+                    
+                } catch (error) {
+                    messageElement.textContent = `Error initializing DASH player: ${error.message}`;
+                    messageElement.classList.add('error');
+                }
+            } else {
+                messageElement.textContent = 'DASH.js library not loaded. Cannot play DASH streams.';
+                messageElement.classList.add('error');
+            }
+        }
+
+        function loadStreamFromInput() {
+            const url = hlsUrlInput.value.trim();
+            if (url) {
+                loadStream(url);
+            } else {
+                messageElement.textContent = 'Please enter an HLS or DASH URL.';
+                messageElement.classList.add('error');
+            }
+        }
+
+        // Mute button logic
+        muteBtn.onclick = function() {
+            toggleMute();
+        };
+        // Set initial button label based on video state
+        muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
+
+        // Block mouse events on the video element
+        video.addEventListener('mousedown', function(e) { e.preventDefault(); });
+        video.addEventListener('click', function(e) { e.preventDefault(); });
+        video.addEventListener('dblclick', function(e) { e.preventDefault(); });
+        video.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+        // Keyboard controls
+        document.addEventListener('keydown', function(e) {
+            // Prevent default behavior if we're handling the key
+            switch(e.key.toLowerCase()) {
+                case 'f':
+                    e.preventDefault();
+                    toggleFullscreen();
+                    break;
+                case 'm':
+                    e.preventDefault();
+                    toggleMute();
+                    break;
+                case ' ':
+                case 'k':
+                    e.preventDefault();
+                    togglePlayPause();
+                    break;
+                case 'arrowleft':
+                    e.preventDefault();
+                    video.currentTime -= 10; // Skip back 10 seconds
+                    break;
+                case 'arrowright':
+                    e.preventDefault();
+                    video.currentTime += 10; // Skip forward 10 seconds
+                    break;
+                case 'arrowup':
+                    e.preventDefault();
+                    adjustVolume(0.1); // Increase volume by 10%
+                    break;
+                case 'arrowdown':
+                    e.preventDefault();
+                    adjustVolume(-0.1); // Decrease volume by 10%
+                    break;
+                case '0':
+                case 'home':
+                    e.preventDefault();
+                    video.currentTime = 0; // Go to beginning
+                    break;
+                case 'end':
+                    e.preventDefault();
+                    video.currentTime = video.duration; // Go to end
+                    break;
+                case 'escape':
+                    e.preventDefault();
+                    exitFullscreen();
+                    break;
+            }
+        });
+
+        // Fullscreen functions
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) {
+                    video.webkitRequestFullscreen();
+                } else if (video.msRequestFullscreen) {
+                    video.msRequestFullscreen();
+                }
+            } else {
+                exitFullscreen();
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+
+        // Mute toggle function
+        function toggleMute() {
+            video.muted = !video.muted;
+            muteBtn.textContent = video.muted ? 'Unmute' : 'Mute';
+        }
+
+        // Play/pause toggle
+        function togglePlayPause() {
+            if (video.paused) {
+                video.play();
+            } else {
+                video.pause();
+            }
+        }
+
+        // Volume adjustment
+        function adjustVolume(delta) {
+            const newVolume = Math.max(0, Math.min(1, video.volume + delta));
+            video.volume = newVolume;
+            
+            // Show volume feedback
+            showVolumeIndicator(Math.round(newVolume * 100));
+        }
+
+        // Volume indicator
+        function showVolumeIndicator(volume) {
+            let indicator = document.getElementById('volumeIndicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'volumeIndicator';
+                indicator.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 5px;
+                    font-size: 18px;
+                    z-index: 1000;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(indicator);
+            }
+            
+            indicator.textContent = `Volume: ${volume}%`;
+            indicator.style.display = 'block';
+            
+            // Hide after 1 second
+            clearTimeout(indicator.hideTimeout);
+            indicator.hideTimeout = setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 1000);
+        }
+
+        // Check for URL parameter on page load
+        window.onload = function() {
+            const channelUrl = getUrlParameter('channel');
+            if (channelUrl) {
+                hlsUrlInput.value = channelUrl; // Populate the input field
+                loadStream(channelUrl);
+            } else {
+                messageElement.textContent = 'No stream URL provided in the "channel" URL parameter. Enter one above or try appending "?channel=YOUR_STREAM_URL" to the URL.';
+            }
+
+            const params = new URLSearchParams(window.location.search);
+            const channel = params.get('channel');
+            const playlist = localStorage.getItem('hls_playlist');
+            if (playlist) {
+              // Use playlist content with HLS.js or display it
+              // Example: console.log(playlist);
+            }
+        };
+    </script>
+</body>
+</html>

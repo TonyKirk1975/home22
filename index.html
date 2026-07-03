@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Enhanced Launcher</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="header-container">
+    <h1 id="page-title">Launcher Page</h1>
+    
+    <!-- Settings cog for toggling top bar -->
+    <span id="settings-cog" style="cursor:pointer;font-size:22px;margin-right:8px;">⚙️</span>
+    <div id="top-bar" style="display:none;">
+      <div class="controls">
+        <label>
+          <input type="checkbox" id="theme-toggle" />
+          Dark Mode
+        </label>
+        <input type="text" id="search-box" placeholder="Search links..." />
+        <button id="export-btn">Export JSON</button>
+        <input type="file" id="import-file" accept=".json">
+        <label for="import-file" class="import-label">Import JSON</label>
+        <span id="import-mode-options" style="margin-left:10px;">
+          <label><input type="radio" name="import-mode" value="replace"> Replace</label>
+          <label><input type="radio" name="import-mode" value="append" checked> Append</label>
+        </span>
+        <input type="file" id="bookmark-file" accept=".html">
+        <label for="bookmark-file" class="import-label">Import Bookmarks</label>
+        <input type="text" id="hls-url" placeholder="HLS .m3u8 URL" />
+        <button id="hls-popup-btn">HLS Player</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-container">
+    <div id="drop-area">
+      <p id="drop-text">Drop a link here (e.g. drag from browser tab) or drop local files (.html, .pdf, etc.)</p>
+      <!-- Hidden text input toggled by right-click on the drop box -->
+      <input id="drop-input" type="text" placeholder="Paste URL here and press Enter" style="display:none;width:90%;padding:8px;margin-top:10px;">
+    </div>
+
+    <div id="main-container">
+      <div id="group-container"></div>
+
+      <aside id="favorites-bar">
+        <h3>⭐ Favorites</h3>
+        <ul id="favorites-list"></ul>
+      </aside>
+    </div>
+  </div>
+
+  <div id="context-menu" class="context-menu">
+    <button id="edit-link">Edit URL</button>
+    <button id="rename-link">Rename</button>
+    <button id="move-link">Change Group</button>
+    <button id="favorite-link">Toggle Favorite</button>
+    <button id="pin-favorite-link">Pin/Unpin Favorite</button>
+    <button id="delete-link">Delete</button>
+  </div>
+
+  <div id="group-context-menu" class="context-menu">
+    <button id="rename-group">Rename Group</button>
+    <button id="hide-group">Hide Group</button>
+    <button id="export-group-html">Export Group to HTML</button>
+    <button id="delete-group">Delete Group</button>
+  </div>
+
+  <div id="settings-context-menu" class="context-menu">
+    <button id="clear-all-links">Clear All Links</button>
+    <button id="reset-groups">Reorder Groups</button>
+    <button id="unhide-all-groups">Unhide All Groups</button>
+  </div>
+
+  <div id="title-context-menu" class="context-menu">
+    <button id="change-title">Change Title</button>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    function positionContextMenu(menu, x, y) {
+      // Show the menu temporarily to measure its dimensions
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
+      
+      const menuRect = menu.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate initial position
+      let menuX = x;
+      let menuY = y;
+      
+      // Adjust horizontal position if menu would go off right edge
+      if (menuX + menuRect.width > viewportWidth) {
+        menuX = viewportWidth - menuRect.width - 5; // 5px margin from edge
+      }
+      
+      // Adjust vertical position if menu would go off bottom edge
+      if (menuY + menuRect.height > viewportHeight) {
+        menuY = viewportHeight - menuRect.height - 5; // 5px margin from edge
+      }
+      
+      // Ensure menu doesn't go off left edge
+      if (menuX < 0) {
+        menuX = 5;
+      }
+      
+      // Ensure menu doesn't go off top edge
+      if (menuY < 0) {
+        menuY = 5;
+      }
+      
+      // Apply the calculated position
+      menu.style.left = `${menuX}px`;
+      menu.style.top = `${menuY}px`;
+      menu.style.visibility = 'visible';
+    }
+
+    document.getElementById('hls-popup-btn').addEventListener('click', function() {
+      const url = document.getElementById('hls-url').value.trim();
+      if (!url) {
+        alert('Please enter an HLS .m3u8 URL.');
+        return;
+      }
+      window.open(`hls.html?channel=${encodeURIComponent(url)}`, '_blank', 'width=900,height=600');
+    });
+
+    // Toggle top bar visibility
+    document.getElementById('settings-cog').addEventListener('click', function() {
+      const topBar = document.getElementById('top-bar');
+      if (topBar.style.display === 'none' || topBar.style.display === '') {
+        topBar.style.display = 'flex';
+      } else {
+        topBar.style.display = 'none';
+      }
+    });
+
+    // Title context menu
+    document.getElementById('page-title').addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      const titleContextMenu = document.getElementById('title-context-menu');
+      positionContextMenu(titleContextMenu, e.pageX, e.pageY);
+      titleContextMenu.style.display = 'block';
+    });
+
+    // Change title functionality
+    document.getElementById('change-title').addEventListener('click', function() {
+      const currentTitle = document.getElementById('page-title').textContent;
+      let newTitle = prompt('Enter new title:', currentTitle);
+      
+      // Validate input - trim whitespace and check if empty
+      if (newTitle !== null) {
+        newTitle = newTitle.trim();
+        if (newTitle === '') {
+          alert('Title cannot be empty. Please enter a valid title.');
+        } else {
+          document.getElementById('page-title').textContent = newTitle;
+          document.title = newTitle; // Also update the browser tab title
+          
+          // Save to localStorage so it persists
+          localStorage.setItem('pageTitle', newTitle);
+        }
+      }
+      
+      document.getElementById('title-context-menu').style.display = 'none';
+    });
+
+    // Load saved title on page load
+    const savedTitle = localStorage.getItem('pageTitle');
+    if (savedTitle && savedTitle.trim() !== '') {
+      document.getElementById('page-title').textContent = savedTitle;
+      document.title = savedTitle;
+    }
+  </script>
+</body>
+</html>

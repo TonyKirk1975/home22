@@ -1,0 +1,288 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+html {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Fixed header container */
+.header-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  z-index: 100;
+  padding: 20px;
+  border-bottom: 1px solid #ccc;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 0 20px 0;
+}
+
+/* Content area that scrolls */
+.content-container {
+  position: fixed;
+  top: 120px; /* Increased to account for header height with controls */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+#drop-area {
+  border: 2px dashed #666;
+  padding: 20px;
+  margin: 0 auto 20px auto;
+  text-align: center;
+  background: #f9f9f9;
+  max-width: 800px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+td, th {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+a {
+  text-decoration: none;
+  color: blue;
+}
+
+.favicon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.drag-handle {
+  cursor: grab;
+  font-size: 18px;
+  width: 40px;
+  text-align: center;
+}
+
+.local-file-icon {
+  display: inline-block;
+  text-align: center;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.context-menu {
+  position: absolute;
+  display: none;
+  background: white;
+  border: 1px solid #ccc;
+  z-index: 1000;
+}
+
+.context-menu button {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  background: white;
+  text-align: left;
+}
+
+.context-menu button:hover {
+  background: #eee;
+}
+
+.controls {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#import-file, #bookmark-file {
+  display: none;
+}
+
+.import-label {
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  background-color: #eee;
+  margin-left: 10px;
+}
+
+#search-box {
+  padding: 5px;
+  margin-left: 10px;
+}
+
+.group-section {
+  margin-top: 40px;
+  border-left: 5px solid #999;
+  padding-left: 10px;
+}
+
+.group-title {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+  cursor: pointer;
+  user-select: none;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #ccc;
+}
+
+body.dark {
+  background-color: #222;
+  color: #eee;
+}
+
+body.dark .header-container {
+  background-color: #222;
+  border-bottom-color: #666;
+}
+
+body.dark .content-container {
+  background-color: #222;
+}
+
+body.dark a {
+  color: yellow;
+}
+
+body.dark #drop-area {
+  background: #333;
+  border-color: #aaa;
+}
+
+body.dark table, body.dark th, body.dark td {
+  border-color: #666;
+}
+
+body.dark .context-menu {
+  background: #333;
+  color: #eee;
+  border-color: #666;
+}
+
+body.dark .context-menu button:hover {
+  background: #555;
+}
+
+body.dark .import-label {
+  background-color: #444;
+}
+
+body.dark #favorites-bar {
+  border-left-color: #666;
+}
+
+#main-container {
+  display: flex;
+  height: calc(100vh - 280px); /* Adjust for fixed header and drop area */
+  min-height: 300px;
+}
+
+#group-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 10px;
+  height: 100%;
+}
+
+#favorites-bar {
+  width: 320px;
+  margin-left: 20px;
+  padding: 10px;
+  border-left: 2px solid #ccc;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+#favorites-bar h3 {
+  margin-top: 0;
+}
+
+#favorites-list {
+  list-style: none;
+  padding: 0;
+}
+
+#favorites-list li {
+  margin: 5px 0;
+}
+
+/* Scrollbar styling for better appearance */
+.content-container::-webkit-scrollbar,
+#group-container::-webkit-scrollbar,
+#favorites-bar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-container::-webkit-scrollbar-track,
+#group-container::-webkit-scrollbar-track,
+#favorites-bar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.content-container::-webkit-scrollbar-thumb,
+#group-container::-webkit-scrollbar-thumb,
+#favorites-bar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.content-container::-webkit-scrollbar-thumb:hover,
+#group-container::-webkit-scrollbar-thumb:hover,
+#favorites-bar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Dark mode scrollbar styling */
+body.dark .content-container::-webkit-scrollbar-track,
+body.dark #group-container::-webkit-scrollbar-track,
+body.dark #favorites-bar::-webkit-scrollbar-track {
+  background: #444;
+}
+
+body.dark .content-container::-webkit-scrollbar-thumb,
+body.dark #group-container::-webkit-scrollbar-thumb,
+body.dark #favorites-bar::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 4px;
+}
+
+body.dark .content-container::-webkit-scrollbar-thumb:hover,
+body.dark #group-container::-webkit-scrollbar-thumb:hover,
+body.dark #favorites-bar::-webkit-scrollbar-thumb:hover {
+  background: #888;
+}
+
+/* Highlight group section while dragging a link over it */
+.group-section.drag-hover {
+  outline: 3px solid #007acc;
+  outline-offset: 4px;
+  background: rgba(0, 122, 204, 0.06);
+  border-radius: 6px;
+}
+
+body.dark .group-section.drag-hover {
+  outline-color: #66b7ff;
+  background: rgba(102, 183, 255, 0.10);
+}
